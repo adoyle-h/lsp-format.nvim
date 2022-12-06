@@ -3,6 +3,7 @@ local lspUtil = require "vim.lsp.util"
 
 local M = {
     format_options = {},
+    global_format_options = {},
     disabled = false,
     disabled_filetypes = {},
     queue = {},
@@ -11,6 +12,13 @@ local M = {
 
 M.setup = function(format_options)
     M.format_options = vim.tbl_deep_extend("force", M.format_options, format_options or {})
+    M.global_format_options = vim.tbl_deep_extend("keep", M.format_options._ or {}, {
+      on_save = true,
+      sync = false,
+      force = false,
+      exclude = {},
+      order = {},
+    })
 
     vim.api.nvim_create_user_command("Format", M.format, { nargs = "*", bar = true, force = true })
     vim.api.nvim_create_user_command("FormatInRange", M.format_in_range, { nargs = "*", bar = true, force = true })
@@ -52,9 +60,14 @@ M._parse_value = function(key, value)
     return value
 end
 
+local function get_format_options()
+  return vim.tbl_deep_extend("keep", M.format_options[vim.bo.filetype] or {}, M.global_format_options)
+end
+
 local function format(clients, options)
     local bufnr = vim.api.nvim_get_current_buf()
-    local format_options = vim.deepcopy(M.format_options[vim.bo.filetype] or {})
+    local format_options = get_format_options()
+
     for key, option in pairs(format_options) do
         if type(option) == "function" then
             format_options[key] = option()
@@ -67,14 +80,14 @@ local function format(clients, options)
 
     for i = #clients, 1, -1 do
         if
-            vim.tbl_contains(format_options.exclude or {}, clients[i].name)
+            vim.tbl_contains(format_options.exclude, clients[i].name)
             or not vim.tbl_contains(M.buffers[bufnr] or {}, clients[i].id)
         then
             table.remove(clients, i)
         end
     end
 
-    for _, client_name in pairs(format_options.order or {}) do
+    for _, client_name in pairs(format_options.order) do
         for i, client in pairs(clients) do
             if client.name == client_name then
                 table.insert(clients, table.remove(clients, i))
@@ -153,9 +166,7 @@ M.on_attach = function(client)
     end
     table.insert(M.buffers[bufnr], client.id)
 
-    local format_options = vim.tbl_deep_extend('keep', M.format_options[vim.bo.filetype] or {}, {
-      on_save = true
-    })
+    local format_options = get_format_options()
 
     if format_options.on_save then
       local event = "BufWritePost"
