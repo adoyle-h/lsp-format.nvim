@@ -162,3 +162,20 @@ require("lspconfig").efm.setup {
 
 Now Typescript gets formatted with what `shiftwidth` is set to, and YAML with 2 spaces by default.  
 And you can run `:Format tab_width=8` to overwrite the setting and format with 8 spaces.
+
+#### Global Format Options
+
+The options in `_` are global defaults. They will match all filetypes. For example,
+
+```lua
+require("lsp-format").setup {
+    _ = {
+      on_save = false,
+      sync = true,
+    },
+    lua = { on_save = true },
+}
+```
+
+The format options of lua filetype will be `{ on_save = true, sync = true }`,
+and other filetypes will be `{ on_save = false, sync = true }`.
